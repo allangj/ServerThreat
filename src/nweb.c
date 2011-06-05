@@ -54,6 +54,7 @@ void log(int type, char *s1, char *s2, int num)
 }
 
 /* this is a child web server process, so we can exit on errors */
+//CAMBIAR ESTO A LA FUNCION EJECUTADA POR EL HILO
 void web(int fd, int hit)
 {
 	int j, file_fd, buflen, len;
@@ -159,21 +160,27 @@ int main(int argc, char **argv)
 	}
 
 	/* Become deamon + unstopable and no zombies children (= no wait()) */
-	if(fork() != 0)
+	
+	if(fork() != 0)//This if must be removed, check only if the fork is posible but we are not gonna use it
 		return 0; /* parent returns OK to shell */
-	(void)signal(SIGCLD, SIG_IGN); /* ignore child death */
-	(void)signal(SIGHUP, SIG_IGN); /* ignore terminal hangups */
+
+	(void)signal(SIGCLD, SIG_IGN); /* ignore child death */ //CHECK, NO CHILDS NO WORRY ABOUT DEATHS
+
+	(void)signal(SIGHUP, SIG_IGN); /* ignore terminal hangups *///REVIEW IF NESCESARY
+	
 	for(i=0;i<32;i++)
 		(void)close(i);		/* close open files */
 	(void)setpgrp();		/* break away from process group */
 
 	log(LOG,"nweb starting",argv[1],getpid());
+	
 	/* setup the network socket */
 	if((listenfd = socket(AF_INET, SOCK_STREAM,0)) <0)
 		log(ERROR, "system call","socket",0);
 	port = atoi(argv[1]);
 	if(port < 0 || port >60000)
 		log(ERROR,"Invalid port number (try 1->60000)",argv[1],0);
+	
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serv_addr.sin_port = htons(port);
@@ -182,19 +189,20 @@ int main(int argc, char **argv)
 	if( listen(listenfd,64) <0)
 		log(ERROR,"system call","listen",0);
 
-	for(hit=1; ;hit++) {
+	for(hit=1; ;hit++) {//INFINITE LOOP
 		length = sizeof(cli_addr);
 		if((socketfd = accept(listenfd, (struct sockaddr *)&cli_addr, &length)) < 0)
 			log(ERROR,"system call","accept",0);
 
-		if((pid = fork()) < 0) {
-			log(ERROR,"system call","fork",0);
+		if((pid = fork()) < 0) { //CREA AL HIJO
+			log(ERROR,"system call","fork",0);//NO SE PUDO CREAR EL HIJO
 		}
 		else {
-			if(pid == 0) { 	/* child */
+			if(pid == 0) { 	/* child */  //SI ES EL HIJO Y EJECUTA WEB
 				(void)close(listenfd);
 				web(socketfd,hit); /* never returns */
-			} else { 	/* parent */
+
+			} else { 	/* parent */ //SI ES EL PADRE CIERRA EL SOCKET
 				(void)close(socketfd);
 			}
 		}
