@@ -37,29 +37,27 @@ struct {//Extensions supported
 	{"htm", "text/html" },//htm support  
 	{"html","text/html" },//html support  
 	{0,0} };
-
-struct threadshandler_t{
-	int numfreethreads;
-	int requests;
-	pthread_mutex_t mutexreceive;
-	pthread_cond_t condfree;
-	pthread_cond_t condfull;
-	} thandler = {0,0,PTHREAD_MUTEX_INITIALIZER,
-			   PTHREAD_COND_INITIALIZER,
-			   PTHREAD_COND_INITIALIZER};
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+int ghit = 0; //global variable for a hit
+int gfd = 0;// global variable for a listen fd
+int ntfree = 0;//global variable for number of threads free
+int rqts = 0;
+int numthreads = 0;
+pthread_t *servert;
 pthread_attr_t threadattr;
+pthread_mutex_t mutexr = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condfree = PTHREAD_COND_INITIALIZER;
+pthread_cond_t condfull = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 ///////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////Function's///////////////////////////////////
-
-void initialize_threads(){
+//////////////////////////////initialize threads///////////////////////////////
+void initialize_pthreads(){
 	serverthreads = (pthread_t *)malloc(sizeof(pthread_t)*numthreads);
-	threadhandler.numfreethreads = numthreads;
 	for(int i=0; i<numthreads; i++){
-		pthread_create(&serverthreads[i], NULL, (void *(*)(void *))&web, NULL);
+		pthread_create(&servert[i], NULL, (void *(*)(void *))&web, NULL);
 	}
 }
 
@@ -99,7 +97,7 @@ void log(int type, char *s1, char *s2, int num){
 
 /////////////////////////////////web function//////////////////////////////////
 /* this is a child web server process, so we can exit on errors */
-void web(int fd, int hit){
+void web(int fd, int hit){//need to be modified
 	int j, file_fd, buflen, len;
 	long i, ret;
 	char * fstr;
@@ -185,16 +183,17 @@ void web(int fd, int hit){
 int main(int argc, char **argv){//main
 	int i, port, pid, listenfd, socketfd, hit;
 	size_t length;
+	char *flag; //used to check for the numbers of threads parameter to be a number
 	static struct sockaddr_in cli_addr; /* static = initialised to zeros */
 	static struct sockaddr_in serv_addr; /* static = initialised to zeros */
 
-	if( argc < 3  || argc > 3 || !strcmp(argv[1], "-?") ) { //check number or arg
-		(void)printf("hint: nweb Port-Number Top-Directory\n\n"
+	if( argc < 4  || argc > 4 || !strcmp(argv[1], "-?") ) { //check number or arg
+		(void)printf("hint: nweb Port-Number Top-Directory & Num of Threads\n\n"
 		"\tnweb is a small and very safe mini web server\n"
 		"\tnweb only servers out file/web pages with extensions named below\n"
 		"\t and only from the named directory or its sub-directories.\n"
 		"\tThere is no fancy features = safe and secure.\n\n"
-		"\tExample: nweb 8181 /home/nwebdir &\n\n"
+		"\tExample: nweb 8181 /home/nwebdir & 30\n\n"
 		"\tOnly Supports:");
 
 		for(i=0;extensions[i].ext != 0;i++){
@@ -221,13 +220,20 @@ int main(int argc, char **argv){//main
 		exit(4);//stop porcess
 	}
 
+	/*check for the number of threads to be a number*/
+	numthreads= strtoul(argv[3],&flag,10);
+	if(*flag=!NULL){
+		(void)printf("ERROR: Bad num of threads, must be a number, see nweb -?\n",argv[4]);
+		exit(0);//stop the process parent, because bad arg
+	}
+	
 	/* Become deamon + unstopable and no zombies children (= no wait()) */
 	if(fork() != 0){//KILL the father and leave the child like a daemon
 		return 0; /* parent returns OK to shell */
 	}
 
-	(void)signal(SIGCLD, SIG_IGN); /* ignore child death */ /*when a child die on a exit i 
-								ignore the returns of the exits*/
+	//(void)signal(SIGCLD, SIG_IGN); No childs /* ignore child death */ /*when a child die on a exit i 
+								/*ignore the returns of the exits*/
 
 	(void)signal(SIGHUP, SIG_IGN); /* ignore terminal hangups */
 	
@@ -260,6 +266,10 @@ int main(int argc, char **argv){//main
 	if( listen(listenfd,64) <0){//bound TCP socket to enter listening state
 		log(ERROR,"system call","listen",0);
 	}
+
+	/*initialize the threads*/
+	initialize_threads();
+	sleep(1);
 
 	for(hit=1; ;hit++) {//INFINITE LOOP
 		length = sizeof(cli_addr);//size of client address
