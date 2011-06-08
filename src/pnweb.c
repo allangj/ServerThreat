@@ -19,14 +19,15 @@
 #define SORRY 43
 #define LOG   44
 ///////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////////////////////////////////////////////////
 void weblog(int, char *, char *, int);
-void web();
+void *web();
+void initialize_pthreads();
+//////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////Global//////////////////////////////////////
 pthread_t *servert;
 int numthreads = 0, gfd, ghit;
-
+//////////////////////////////////////////////////////////////////////////////
 struct handler_s{
 	int ntfree;
 	int rqts;
@@ -34,15 +35,6 @@ struct handler_s{
 	pthread_cond_t condfree;
 	pthread_cond_t condfull;
 	} handler_t = {0,0,PTHREAD_MUTEX_INITIALIZER,PTHREAD_COND_INITIALIZER,PTHREAD_COND_INITIALIZER};
-
-void initialize_pthreads(){
-	int i;
-	servert = (pthread_t *)malloc(sizeof(pthread_t)*numthreads);
-	handler_t.ntfree = numthreads;
-	for(i=0; i<numthreads; i++){
-		pthread_create(&servert[i], NULL, (void *(*)(void *))&web, NULL);
-	}
-}
 
 struct {//Extensions supported
 	char *ext;
@@ -60,8 +52,20 @@ struct {//Extensions supported
 	{"ico", "image/ico"},
 	{"txt", "text/html"},
 	{0,0} };
+////////////////////////////////////////////////////////////////////////////////
 
+
+///////////////////////////////Functions///////////////////////////////////////
 ///////////////////////////////Log messages////////////////////////////////////
+void initialize_pthreads(){
+	int i;
+	servert = (pthread_t *)malloc(sizeof(pthread_t)*numthreads);
+	handler_t.ntfree = numthreads;
+	for(i=0; i<numthreads; i++){
+		pthread_create(&servert[i], NULL, &web, NULL);
+	}
+}
+
 void log(int type, char *s1, char *s2, int num){
 	int fd ;
 	char logbuffer[BUFSIZE*2];
@@ -97,11 +101,17 @@ void log(int type, char *s1, char *s2, int num){
 
 /////////////////////////////////web function//////////////////////////////////
 /* this is a child web server process, so we can exit on errors */
-void web(){//need to be modified
+void *web(){//need to be modified
 
 	for(;;){
 		int intfd;
 		int inthit;
+		int j, file_fd, buflen, len;
+		long i, ret;
+		char * fstr;
+		static char buffer[BUFSIZE+1]; /* static so zero filled */
+		memset(buffer, 0, BUFSIZE+1);
+
 		pthread_mutex_lock(&(handler_t.mutexr));
 		while((handler_t.rqts == 0) || (handler_t.ntfree >= numthreads)){
 			pthread_cond_wait(&(handler_t.condfull), &(handler_t.mutexr));
@@ -112,12 +122,6 @@ void web(){//need to be modified
 
 		pthread_mutex_unlock(&(handler_t.mutexr));
 		pthread_cond_signal(&(handler_t.condfree));
-
-		int j, file_fd, buflen, len;
-		long i, ret;
-		char * fstr;
-		static char buffer[BUFSIZE+1]; /* static so zero filled */
-		memset(buffer, 0, BUFSIZE+1);
 
 		ret =read(intfd,buffer,BUFSIZE); 	/* read Web request in one go */
 	
