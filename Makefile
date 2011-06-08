@@ -9,7 +9,7 @@ all: build
 
 build:
 		(cd src; gcc -O  -DLINUX  nweb.c -o ../bin/nweb)
-sim:
+		(cd src; gcc -O  -DLINUX -lpthread  pnweb.c -o ../bin/pnweb)
 
 chkconfig:
 
@@ -21,3 +21,4 @@ install:
 
 clean:
 		(cd bin/; rm nweb)
+		(cd bin/; rm pnweb)
