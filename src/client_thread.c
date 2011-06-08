@@ -86,7 +86,7 @@ int main(int argc, char **argv)
              mrequests = atoi(optarg);
              break;
         case '?':
-			 printf("Client receive 2 arguments:\n-t number_of_threads\n -r number_of_requests_per_thread\n");
+			 printf("Client receive 2 arguments:\n-n number_of_threads\n -m number_of_requests_per_thread\n");
              return 1;
          break;
             }
