@@ -9,8 +9,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#define NUMPTHREADS	100
 //////////////////////////Include the pthread library//////////////////////////
 #include <pthread.h>
 ///////////////////////////////////////////////////////////////////////////////
@@ -23,11 +21,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////
-pthread_t *servert;
-int numthreads = 0, gfd, ghit;
-
 void weblog(int, char *, char *, int);
 void web();
+
+pthread_t *servert;
+int numthreads = 0, gfd, ghit;
 
 struct handler_s{
 	int ntfree;
@@ -36,8 +34,6 @@ struct handler_s{
 	pthread_cond_t condfree;
 	pthread_cond_t condfull;
 	} handler_t = {0,0,PTHREAD_MUTEX_INITIALIZER,PTHREAD_COND_INITIALIZER,PTHREAD_COND_INITIALIZER};
-
-//pthread_mutex_t weblogmutex = PTHREAD_MUTEX_INITIALIZER;
 
 void initialize_pthreads(){
 	int i;
@@ -297,17 +293,15 @@ int main(int argc, char **argv){//main
 		exit(-1);
 	}
 
-	if( listen(listenfd,100) <0){//bound TCP socket to enter listening state
+	if( listen(listenfd,numthreads) <0){//bound TCP socket to enter listening state
 		log(ERROR,"system call","listen",0);
 	}
 
 	/*initialize the threads*/
-	//numthreads=NUMPTHREADS;
 	initialize_pthreads();
 	sleep(1);
 
 	for(hit=1; ;hit++) {//INFINITE LOOP
-		//length = sizeof(cli_addr);//size of client address
 		int socketfd = -1;
 		if((socketfd = accept(listenfd, NULL, NULL)) < 0){ //(struct sockaddr *)&cli_addr, &length)) < 0){/*It accepts a received incoming attempt 
 											     /*to create a new TCP connection from the 
